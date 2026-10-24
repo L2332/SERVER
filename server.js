@@ -14,8 +14,8 @@ const CONFIG = {
   ram: "4G",
   password: "friends123",   // friends' password (can Start)
   adminPassword: "admin123", // your password (can Stop)
-  idleMinutes: 10,          // auto-stop when no players are online
-  allowedOrigin: "*",       // for Netlify: set to "https://your-site.netlify.app"
+  idleMinutes: 100,          // auto-stop when no players are online
+  allowedOrigin: "https://genuine-dragon-a9cbe7.netlify.app/",       // for Netlify: set to "https://your-site.netlify.app"
 };
 // ==========================
 
