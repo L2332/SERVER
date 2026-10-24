@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft Server Panel</title>
+<style>
+  :root { --bg:#1b1f27; --card:#242a35; --text:#e8ecf2; --muted:#8b95a7; --green:#22c55e; --red:#ef4444; --amber:#f59e0b; --blue:#3b82f6; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--text); font-family:system-ui,sans-serif; padding:16px; }
+  .card { width:100%; max-width:420px; background:var(--card); border-radius:14px; padding:24px; }
+  h1 { margin:0 0 16px; font-size:1.3rem; }
+  .status { display:flex; align-items:center; gap:10px; font-size:1.1rem; font-weight:600; }
+  .dot { width:14px; height:14px; border-radius:50%; background:var(--red); }
+  .dot.online { background:var(--green); } .dot.starting, .dot.stopping { background:var(--amber); }
+  .players { color:var(--muted); margin:6px 0 18px; font-size:.95rem; }
+  input { width:100%; padding:12px; border-radius:8px; border:1px solid #3a4252; background:var(--bg); color:var(--text); font-size:1rem; margin-bottom:12px; }
+  .row { display:flex; gap:10px; }
+  button { flex:1; padding:13px; border:0; border-radius:8px; font-size:1rem; font-weight:700; color:#fff; cursor:pointer; }
+  #start { background:var(--green); } #stop { background:var(--red); }
+  button:disabled { opacity:.4; cursor:not-allowed; }
+  #msg { min-height:1.3em; margin:12px 0 0; font-size:.9rem; color:var(--amber); }
+  pre { background:var(--bg); border-radius:8px; padding:10px; font-size:.72rem; color:var(--muted); max-height:140px; overflow:auto; white-space:pre-wrap; margin:14px 0 0; }
+  small { color:var(--muted); display:block; margin-top:12px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>⛏️ Minecraft Server</h1>
+  <div class="status"><span id="dot" class="dot"></span><span id="label">Getting status…</span></div>
+  <div class="players" id="players"></div>
+
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <div class="row">
+    <button id="start">▶ Start</button>
+    <button id="stop">■ Stop</button>
+  </div>
+  <p id="msg"></p>
+  <pre id="log"></pre>
+  <small>The server shuts down automatically when no one is playing for a few minutes. Only the admin password can Stop it.</small>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const labels = { offline:"Offline", starting:"Starting… (about 1 minute)", online:"Online", stopping:"Stopping…" };
+let current = "offline";
+
+// Backend address. Empty = same site (when served by server.js).
+// On Netlify, open the page once with ?api=https://your-tunnel-link and it is remembered.
+let API = "";
+try {
+  const p = new URLSearchParams(location.search).get("api");
+  if (p) localStorage.setItem("mcApi", p);
+  API = (localStorage.getItem("mcApi") || "").replace(/\/+$/, "");
+} catch {}
+
+async function refresh() {
+  try {
+    const r = await fetch(API + "/api/status");
+    const s = await r.json();
+    current = s.state;
+    $("dot").className = "dot " + s.state;
+    $("label").textContent = labels[s.state];
+    $("players").textContent = s.state === "online"
+      ? `Players: ${s.players.length}${s.players.length ? " — " + s.players.join(", ") : ""}`
+      : "";
+    $("log").textContent = s.logs.join("\n");
+    $("log").scrollTop = $("log").scrollHeight;
+    $("start").disabled = s.state !== "offline";
+    $("stop").disabled = s.state === "offline" || s.state === "stopping";
+  } catch {
+    $("label").textContent = "Can't reach the panel";
+    $("dot").className = "dot";
+  }
+}
+
+async function act(action) {
+  $("msg").textContent = "";
+  try {
+    const r = await fetch(API + "/api/" + action, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: $("pw").value }),
+    });
+    const d = await r.json();
+    if (!r.ok) $("msg").textContent = d.error || "Something went wrong.";
+  } catch { $("msg").textContent = "Can't reach the panel."; }
+  refresh();
+}
+
+$("start").onclick = () => act("start");
+$("stop").onclick = () => act("stop");
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
